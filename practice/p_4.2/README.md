@@ -29,7 +29,7 @@ deployment.apps/envoy created
 
 2. 创建envoy的service，暴露端口
 ```shell
- root@master:~/cn# kubectl expose deploy envoy --selector run=envoy --port=10000 --type=NodePort
+ root@master:~/cn# kubectl expose deploy envoy --selector run=envoy --port=10000 --target-port=10000 --type=NodePort
 service/envoy exposed
 
 
@@ -193,4 +193,11 @@ root@master:~/cn# kubectl delete cm,svc --selector run=envoy
 
 #删除所有pod
 root@master:~/cn# kubectl delete pods --all
+```
+
+8. scale up/down/failover
+```
+# kubectl scale deploy <deployment-name> --replicas=<n>
+
+kubectl scale deploy envoy --replicas=2
 ```
