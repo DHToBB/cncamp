@@ -21,15 +21,29 @@
 
 ---
 - 优雅启动。
-> 使用 探针 检查pod是否就绪， 只有就绪的情况下才接收请求。
+> 使用 readinessProbe探针 检查pod是否就绪， 只有就绪的情况下才接收请求。
 
 - 优雅终止。
-> 使用配置 terminationGracePeriodSeconds: 60， 在pod发出关闭指令时，k8s将给应用发送SIGTERM信号，k8s会等待60秒后关闭。 
+> 使用配置 terminationGracePeriodSeconds: 60， 在pod发出关闭指令时，k8s将给应用发送SIGTERM信号，k8s会等待60秒后关闭。
+> 
 > httpserver源码中增加对SIGTERM信号的检测处理。
 
 - 资源需求和QoS保证。
+> 设置deployment的resources请求
+> 
+> Qos有三种服务质量等级，分别是：
+> 
+> Guaranteed：Pod 里的每个容器都必须有内存/CPU 限制和请求，而且值必须相等。如果一个容器只指明limit而未设定request，则request的值等于limit值。
+> 
+> Burstable：Pod 里至少有一个容器有内存或者 CPU 请求且不满足 Guarantee 等级的要求，即内存/CPU 的值设置的不同。
+> 
+> BestEffort：容器必须没有任何内存或者 CPU 的限制或请求。
+> 
+> 本次实验由于资源充分，采用 Guaranteed 方式
+
 
 - 探活。
+> 使用 livenessProbe 存活探针进行探测，如果检测到应用没有存活就杀掉当前pod并重启。
 
 - 日常运维需求，日志等级。
 > httpserver应用程序使用glog的日志级别，替代golang原生的log包
@@ -45,11 +59,36 @@ NAME     STATUS   ROLES                  AGE   VERSION   INTERNAL-IP    EXTERNAL
 master   Ready    control-plane,master   36d   v1.22.2   192.168.34.2   <none>        Ubuntu 20.04.3 LTS   5.4.0-89-generic   docker://20.10.8
 node2    Ready    <none>                 36d   v1.22.2   192.168.34.3   <none>        Ubuntu 20.04.3 LTS   5.4.0-89-generic   docker://20.10.8
 node3    Ready    <none>                 28m   v1.22.2   10.252.3.72    <none>        Ubuntu 20.04.3 LTS   5.4.0-89-generic   docker://20.10.8
+
+root@master:~/hs/specs# kubectl get node node2 -oyaml
+apiVersion: v1
+kind: Node
+metadata:
+...
+spec:
+...
+status:
+...
+  allocatable:
+    cpu: "2"
+    ephemeral-storage: "18903225108"
+    hugepages-2Mi: "0"
+    memory: 1932828Ki
+    pods: "110"
+  capacity:
+    cpu: "2"
+    ephemeral-storage: 20511312Ki
+    hugepages-2Mi: "0"
+    memory: 2035228Ki
+    pods: "110"
+...
 ```
 
 ##操作
-1. 部署应用
+###1. 创建configmap以及部署应用
 ```shell
+root@master:~/hs/specs# kubectl apply -f configmap.yaml
+
 root@master:~/hs/specs# kubectl apply -f deployment.yaml
 
 #查看pod
@@ -63,9 +102,15 @@ root@master:~/hs/specs# curl --noproxy "*" 192.168.135.5
 It works!
 
 Service IP is: 192.168.135.5
+
+#查看configMap 的值是否映射到POD中
+root@master:~/hs/specs# kubectl exec -it dhtobb-httpserver-9fb59ccf4-6rxks -- env
+PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
+HOSTNAME=dhtobb-httpserver-777b486958-hkx5z
+GlogLogdir=/tmp #--- 已经生效
 ```
 
-2. 创建service
+###2. 创建service
 ```shell
 root@master:~/hs/specs# kubectl apply -f service.yaml
 
@@ -82,49 +127,90 @@ Service IP is: 192.168.104.21
 
 ```
 
-3. 创建ingress
-> docker run -it --rm -P --name httpserver  dhtobb/httpserver:v1.0
-
-3.通过 nsenter 进入容器查看 IP 配置
-```shell
-3.1 查看容器的pid
-root@xx:~# docker inspect httpserver | grep -i pid
-            "Pid": 27747,
-            "PidMode": "",
-            "PidsLimit": null,
-
-3.2 查看容器进程的命名空间
-root@xx:~# ls -la /proc/27747/ns/
-total 0
-dr-x--x--x 2 root root 0 Oct 15 09:08 .
-dr-xr-xr-x 9 root root 0 Oct 15 09:08 ..
-lrwxrwxrwx 1 root root 0 Oct 15 09:08 cgroup -> 'cgroup:[4026531835]'
-lrwxrwxrwx 1 root root 0 Oct 15 09:08 ipc -> 'ipc:[4026532756]'
-lrwxrwxrwx 1 root root 0 Oct 15 09:08 mnt -> 'mnt:[4026532754]'
-lrwxrwxrwx 1 root root 0 Oct 15 09:08 net -> 'net:[4026532759]'
-lrwxrwxrwx 1 root root 0 Oct 15 09:08 pid -> 'pid:[4026532757]'
-lrwxrwxrwx 1 root root 0 Oct 15 09:15 pid_for_children -> 'pid:[4026532757]'
-lrwxrwxrwx 1 root root 0 Oct 15 09:08 user -> 'user:[4026531837]'
-lrwxrwxrwx 1 root root 0 Oct 15 09:08 uts -> 'uts:[4026532755]'
-     
-
-3.3 nsenter 进入容器查看 IP 配置
-root@kb:~# nsenter -t 27747 -n ip addr
-1: lo: <LOOPBACK,UP,LOWER_UP> mtu 65536 qdisc noqueue state UNKNOWN group default qlen 1000
-    link/loopback 00:00:00:00:00:00 brd 00:00:00:00:00:00
-    inet 127.0.0.1/8 scope host lo
-       valid_lft forever preferred_lft forever
-105: eth0@if106: <BROADCAST,MULTICAST,UP,LOWER_UP> mtu 1500 qdisc noqueue state UP group default
-    link/ether 02:42:ac:11:00:02 brd ff:ff:ff:ff:ff:ff link-netnsid 0
-    inet 172.17.0.2/16 brd 172.17.255.255 scope global eth0
-       valid_lft forever preferred_lft forever
-
+###3. 创建ingress
+#### install ingress controller
+```
+kubectl create -f nginx-ingress-deployment.yaml
 ```
 
-4. 推送镜像到docker hub官方镜像
-```shell
-4.1 注册并登录docker hub
-docker login
+问题：nginx-ingress-controller启动失败
+```
+#解决过程：
+#查看nginx-ingress-deployment
+root@master:~/hs/specs# kubectl get pod --namespace ingress-nginx
+NAME                                       READY   STATUS              RESTARTS   AGE
+ingress-nginx-admission-create--1-wlq88    0/1     ImagePullBackOff    0          15m
+ingress-nginx-admission-patch--1-hv5dx     0/1     ImagePullBackOff    0          15m
+ingress-nginx-controller-8cf5559f8-stsh8   0/1     ContainerCreating   0          15m
 
-docker push dhtobb/httpserver:v1.0
+root@master:~/hs/specs# kubectl describe pod ingress-nginx-admission-create--1-wlq88
+#问题原因是镜像拉取失败
+Error response from daemon: Get "https://k8s.gcr.io/v2/":
+
+#无法从k8s.gcr.io/v2/上拉取镜像，改为从aliyuncs上拉取镜像，拉取之后直接增加tag， 也可以直接修改yaml文件改为能够访问的镜像
+# docker pull registry.aliyuncs.com/google_containers/kube-webhook-certgen:v1.0
+# docker tag registry.aliyuncs.com/google_containers/kube-webhook-certgen:v1.0 k8s.gcr.io/ingress-nginx/kube-webhook-certgen:v1.0
+# docker rmi registry.aliyuncs.com/google_containers/kube-webhook-certgen:v1.0
+```
+
+#### generated key-cert
+```
+openssl req -x509 -nodes -days 365 -newkey rsa:2048 -keyout tls.key -out tls.crt -subj "/CN=dhtobb.com/O=dhtobb"
+```
+#### 生成secret yaml配置文件，
+```
+#1、通过openssl生成的key-crt文件生成关于secrets的yml文件
+eg: kubectl create secret tls NAME --cert=path/to/cert/file --key=path/to/key/file [--dry-run=server|client|none]
+
+kubectl create secret tls tls-secret --cert=tls.crt --key=tls.key --dry-run=client -o yaml
+
+
+2、从已经生成的secret导出为yaml文件
+kubectl get secret tls-secret -n default -o yaml > secret.yaml
+
+```
+#### 创建secret
+```shell
+#1、直接通过key-crt文件创建
+kubectl create secret tls tls-secret --cert=tls.crt --key=tls.key
+
+#2、通过yaml文件创建
+kubect create -f secret.yaml
+```
+
+#### create a ingress
+```
+kubectl create -f ingress.yaml
+```
+
+问题1: Error from server (InternalError): error when creating "ingress.yaml": Internal error occurred: failed calling webhook "validate.nginx.ingress.kubernetes.io": Post "https://ingress-nginx-controller-admission.ingress-nginx.svc:443/networking/v1/ingresses?timeout=10s": Service Unavailable
+root@master:~/hs/specs# kubectl get validatingwebhookconfigurations
+NAME                      WEBHOOKS   AGE
+ingress-nginx-admission   1          4m16s
+
+解决方案：删除ingress-nginx-adminssion
+root@master:~/hs/specs# kubectl delete -A validatingwebhookconfigurations ingress-nginx-admission
+validatingwebhookconfiguration.admissionregistration.k8s.io "ingress-nginx-admission" deleted
+
+
+#### 查看ingress启动情况
+```shell
+root@master:~/hs/specs# kubectl get ingress
+NAME             CLASS    HOSTS        ADDRESS        PORTS     AGE
+dhtobb-gateway   <none>   dhtobb.com   192.168.34.3   80, 443   6h58m
+
+root@master:~/hs/specs# kubectl get svc -n ingress-nginx
+NAME                                 TYPE        CLUSTER-IP      EXTERNAL-IP   PORT(S)                      AGE
+ingress-nginx-controller             NodePort    10.100.242.30   <none>        80:30566/TCP,443:30531/TCP   55m
+ingress-nginx-controller-admission   ClusterIP   10.109.90.140   <none>        443/TCP                      55m
+```
+#### test the result
+```shell
+root@master:~/hs/specs# curl --noproxy "*" -H "Host: dhtobb.com" https://10.100.242.30 -v -k
+
+#可通过物理机的IP与端口对集群进行访问
+root@master:~/hs/specs# curl --noproxy "*" -H "Host: dhtobb.com" https://10.252.3.70:30531 -k
+It works!
+
+Service IP is: 192.168.104.21
 ```
