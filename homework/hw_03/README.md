@@ -1,4 +1,4 @@
-##1128模块八作业要求：
+## 1128模块八作业要求：
 
 ---
 1.编写kubernetes部署脚本将httpserver部署到kubernetes集群。
@@ -17,7 +17,7 @@
 - 如何确保整个应用的高可用
 - 如何通过证书保证httpServer的通讯安全
 
-##分析
+## 分析
 
 ---
 - 优雅启动。
@@ -62,7 +62,7 @@
       secretName: tls-secret #使用tls-secret作为证书
 ```
 
-##实验环境
+## 实验环境
 ```shell
 #3台虚拟机， 一台master节点， 两台node节点
 root@master:~/hs/specs# kubectl get node -owide
@@ -94,9 +94,59 @@ status:
     pods: "110"
 ...
 ```
+## 操作步骤
+```shell
+# 执行部署
+make deployment
 
-##操作
-###1. 创建configmap、pvc以及部署应用
+# 查看结果
+make result
+
+# 清理安装
+make clean
+```
+
+## 测试最终结果
+```shell
+root@master:~/hs/specs# curl --noproxy "*" -H "Host: dhtobb.com" https://10.100.242.30 -v -k
+
+#可通过物理机的IP与端口对集群进行访问
+root@master:~/hs/specs# curl --noproxy "*" -H "Host: dhtobb.com" https://10.252.3.70:30531 -k
+It works!
+
+Service IP is: 192.168.104.21
+
+#查看日志存储路径是否在configmap中设置的环境变量 /hs-log 目录下
+root@master:~/hs/specs# kubectl exec -it dhtobb-httpserver-5bc8ddd969-fcbkp -- ls /hs-log/
+httpserver.INFO
+httpserver.dhtobb-httpserver-5bc8ddd969-fcbkp.root.log.INFO.20211128-040721.1
+
+#查看日志内容 -- 可以看到请求被记录到了日志中， /healthz 健康探针被kubelet调用
+root@master:~/hs/specs# kubectl exec -it dhtobb-httpserver-5bc8ddd969-fcbkp -- cat /hs-log/httpserver.dhtobb-httpserver-5bc8ddd969-fcbkp.root.log.INFO.20211128-040721.1
+Log file created at: 2021/11/28 04:07:21
+Running on machine: dhtobb-httpserver-5bc8ddd969-fcbkp
+Binary: Built with gc go1.17.2 for linux/amd64
+Log line format: [IWEF]mmdd hh:mm:ss.uuuuuu threadid file:line] msg
+I1128 04:07:21.445540       1 main.go:132] startup server and listen on port... 80
+I1128 04:07:34.368148       1 main.go:93] path:  /healthz Client IP:  10.252.3.72:35150 , HTTP Code:  200
+I1128 04:08:04.367114       1 main.go:93] path:  /healthz Client IP:  10.252.3.72:35182 , HTTP Code:  200
+I1128 04:08:04.367932       1 main.go:93] path:  /healthz Client IP:  10.252.3.72:35180 , HTTP Code:  200
+I1128 04:08:34.366938       1 main.go:93] path:  /healthz Client IP:  10.252.3.72:35218 , HTTP Code:  200
+I1128 04:08:34.366948       1 main.go:93] path:  /healthz Client IP:  10.252.3.72:35220 , HTTP Code:  200
+I1128 04:08:46.672844       1 main.go:93] path:  / Client IP:  192.168.104.23:53060 , HTTP Code:  200
+
+```
+
+## 操作详细步骤
+### 0. 生成镜像文件
+```shell
+root@master:~/hs/# make push
+
+#最终生成 dhtobb/httpserver:v2.0 镜像
+#https://hub.docker.com/r/dhtobb/httpserver/tags
+```
+
+### 1. 创建configmap、pvc以及部署应用
 ```shell
 root@master:~/hs/specs# kubectl apply -f configmap.yaml
 
@@ -124,7 +174,7 @@ HOSTNAME=dhtobb-httpserver-777b486958-hkx5z
 LogDir=/hs-log #--- 已经生效
 ```
 
-###2. 创建service
+### 2. 创建service
 ```shell
 root@master:~/hs/specs# kubectl apply -f service.yaml
 
@@ -141,7 +191,7 @@ Service IP is: 192.168.104.21
 
 ```
 
-###3. 创建ingress
+### 3. 创建ingress
 #### install ingress controller
 ```
 kubectl create -f nginx-ingress-deployment.yaml
@@ -189,7 +239,7 @@ kubectl get secret tls-secret -n default -o yaml > secret.yaml
 kubectl create secret tls tls-secret --cert=tls.crt --key=tls.key
 
 #2、通过yaml文件创建
-kubect create -f secret.yaml
+kubectl create -f secret.yaml
 ```
 
 #### create a ingress
@@ -218,33 +268,4 @@ NAME                                 TYPE        CLUSTER-IP      EXTERNAL-IP   P
 ingress-nginx-controller             NodePort    10.100.242.30   <none>        80:30566/TCP,443:30531/TCP   55m
 ingress-nginx-controller-admission   ClusterIP   10.109.90.140   <none>        443/TCP                      55m
 ```
-#### test the result
-```shell
-root@master:~/hs/specs# curl --noproxy "*" -H "Host: dhtobb.com" https://10.100.242.30 -v -k
 
-#可通过物理机的IP与端口对集群进行访问
-root@master:~/hs/specs# curl --noproxy "*" -H "Host: dhtobb.com" https://10.252.3.70:30531 -k
-It works!
-
-Service IP is: 192.168.104.21
-
-#查看日志存储路径是否在configmap中设置的环境变量 /hs-log 目录下
-root@master:~/hs/specs# kubectl exec -it dhtobb-httpserver-5bc8ddd969-fcbkp -- ls /hs-log/
-httpserver.INFO
-httpserver.dhtobb-httpserver-5bc8ddd969-fcbkp.root.log.INFO.20211128-040721.1
-
-#查看日志内容 -- 可以看到请求被记录到了日志中， /healthz 健康探针被kubelet调用
-root@master:~/hs/specs# kubectl exec -it dhtobb-httpserver-5bc8ddd969-fcbkp -- cat /hs-log/httpserver.dhtobb-httpserver-5bc8ddd969-fcbkp.root.log.INFO.20211128-040721.1
-Log file created at: 2021/11/28 04:07:21
-Running on machine: dhtobb-httpserver-5bc8ddd969-fcbkp
-Binary: Built with gc go1.17.2 for linux/amd64
-Log line format: [IWEF]mmdd hh:mm:ss.uuuuuu threadid file:line] msg
-I1128 04:07:21.445540       1 main.go:132] startup server and listen on port... 80
-I1128 04:07:34.368148       1 main.go:93] path:  /healthz Client IP:  10.252.3.72:35150 , HTTP Code:  200
-I1128 04:08:04.367114       1 main.go:93] path:  /healthz Client IP:  10.252.3.72:35182 , HTTP Code:  200
-I1128 04:08:04.367932       1 main.go:93] path:  /healthz Client IP:  10.252.3.72:35180 , HTTP Code:  200
-I1128 04:08:34.366938       1 main.go:93] path:  /healthz Client IP:  10.252.3.72:35218 , HTTP Code:  200
-I1128 04:08:34.366948       1 main.go:93] path:  /healthz Client IP:  10.252.3.72:35220 , HTTP Code:  200
-I1128 04:08:46.672844       1 main.go:93] path:  / Client IP:  192.168.104.23:53060 , HTTP Code:  200
-
-```
