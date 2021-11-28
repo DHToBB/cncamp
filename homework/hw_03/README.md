@@ -41,7 +41,6 @@
 > 
 > 本次实验由于资源充分，采用 Guaranteed 方式
 
-
 - 探活。
 > 使用 livenessProbe 存活探针进行探测，如果检测到应用没有存活就杀掉当前pod并重启。
 
@@ -50,6 +49,18 @@
 
 - 配置和代码分离。
 > 使用configMap将常用配置注入到pod中
+
+- 如何确保整个应用的高可用
+> 部署 deployment时 增加多个副本 -- replicas: 2
+
+- 如何通过证书保证httpServer的通讯安全
+> httpserver应用程序本身并没有增加https证书， 可以在ingress侧增加证书验证，实现认证与代码分离
+```yaml
+  tls:
+    - hosts:
+        - dhtobb.com
+      secretName: tls-secret #使用tls-secret作为证书
+```
 
 ##实验环境
 ```shell
@@ -85,9 +96,12 @@ status:
 ```
 
 ##操作
-###1. 创建configmap以及部署应用
+###1. 创建configmap、pvc以及部署应用
 ```shell
 root@master:~/hs/specs# kubectl apply -f configmap.yaml
+
+root@master:~/hs/specs# kubectl apply -f pv.yaml
+root@master:~/hs/specs# kubectl apply -f pvc.yaml
 
 root@master:~/hs/specs# kubectl apply -f deployment.yaml
 
@@ -107,7 +121,7 @@ Service IP is: 192.168.135.5
 root@master:~/hs/specs# kubectl exec -it dhtobb-httpserver-9fb59ccf4-6rxks -- env
 PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
 HOSTNAME=dhtobb-httpserver-777b486958-hkx5z
-GlogLogdir=/tmp #--- 已经生效
+LogDir=/hs-log #--- 已经生效
 ```
 
 ###2. 创建service
@@ -213,4 +227,24 @@ root@master:~/hs/specs# curl --noproxy "*" -H "Host: dhtobb.com" https://10.252.
 It works!
 
 Service IP is: 192.168.104.21
+
+#查看日志存储路径是否在configmap中设置的环境变量 /hs-log 目录下
+root@master:~/hs/specs# kubectl exec -it dhtobb-httpserver-5bc8ddd969-fcbkp -- ls /hs-log/
+httpserver.INFO
+httpserver.dhtobb-httpserver-5bc8ddd969-fcbkp.root.log.INFO.20211128-040721.1
+
+#查看日志内容 -- 可以看到请求被记录到了日志中， /healthz 健康探针被kubelet调用
+root@master:~/hs/specs# kubectl exec -it dhtobb-httpserver-5bc8ddd969-fcbkp -- cat /hs-log/httpserver.dhtobb-httpserver-5bc8ddd969-fcbkp.root.log.INFO.20211128-040721.1
+Log file created at: 2021/11/28 04:07:21
+Running on machine: dhtobb-httpserver-5bc8ddd969-fcbkp
+Binary: Built with gc go1.17.2 for linux/amd64
+Log line format: [IWEF]mmdd hh:mm:ss.uuuuuu threadid file:line] msg
+I1128 04:07:21.445540       1 main.go:132] startup server and listen on port... 80
+I1128 04:07:34.368148       1 main.go:93] path:  /healthz Client IP:  10.252.3.72:35150 , HTTP Code:  200
+I1128 04:08:04.367114       1 main.go:93] path:  /healthz Client IP:  10.252.3.72:35182 , HTTP Code:  200
+I1128 04:08:04.367932       1 main.go:93] path:  /healthz Client IP:  10.252.3.72:35180 , HTTP Code:  200
+I1128 04:08:34.366938       1 main.go:93] path:  /healthz Client IP:  10.252.3.72:35218 , HTTP Code:  200
+I1128 04:08:34.366948       1 main.go:93] path:  /healthz Client IP:  10.252.3.72:35220 , HTTP Code:  200
+I1128 04:08:46.672844       1 main.go:93] path:  / Client IP:  192.168.104.23:53060 , HTTP Code:  200
+
 ```

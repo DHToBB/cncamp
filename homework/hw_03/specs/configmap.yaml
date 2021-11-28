@@ -4,4 +4,4 @@ metadata:
   creationTimestamp: "2021-11-27T01:19:35Z"
   name: dhtobb-cm
 data:
-  GlogLogdir: "/tmp"
+  GlogLogdir: "/hs-log"

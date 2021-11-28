@@ -21,8 +21,8 @@ spec:
           image: dhtobb/httpserver:v2.0
           ports:
             - containerPort: 80
-          env:
-            - name: GlogLogdir
+          env:  #env不会随着configmap的改变而改变
+            - name: LogDir
               valueFrom:
                 configMapKeyRef:
                   name: dhtobb-cm
@@ -52,4 +52,17 @@ spec:
             timeoutSeconds: 2       # 容器必须在2s内给出回复，否则判定为失败
             successThreshold: 1     # 连续探测1次成功表示成功
             failureThreshold: 3     # 连续探测 3 次失败表示失败
+          volumeMounts: #值可以随着configmap的改变而改变，每一个key映射为一个文件
+            - name: dhtobb-hs-cm
+              mountPath: "/etc/hs-cm"
+              readOnly: true
+            - name: dhtobb-hs-storage #用于存储httpserver产生的日志信息
+              mountPath: "/hs-log"
       terminationGracePeriodSeconds: 60 #优雅结束
+      volumes:
+        - name: dhtobb-hs-cm
+          configMap:
+            name: dhtobb-cm
+        - name: dhtobb-hs-storage
+          persistentVolumeClaim:
+            claimName: dhtobb-hs-pv-claim
