@@ -8,6 +8,8 @@
 - （可选）创建一个 Grafana Dashboard 展现延时分配情况
 
 ##操作步骤
+
+---
 1. 打包编译镜像
 ```shell
 make push
@@ -21,9 +23,9 @@ make clean #清理部署
 ```
 
 3. 安装grafana与prometheus
->见下方分析步骤
+>见下方详情说明
 
-## 分析
+## 详情说明
 
 ---
 - 为HTTPServer 添加 0-2 秒的随机延时
