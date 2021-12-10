@@ -16,6 +16,7 @@ make push
 ```
 
 > https://hub.docker.com/repository/docker/dhtobb/httpserver
+> 
 > dhtobb/httpserver:v3.0
 > 
 > 新增了prometheus指标支持
@@ -68,10 +69,11 @@ defer timer.ObserveTotal()
 
 - 从Promethus 界面中查询延时指标数据
 > grafana官网地址： https://artifacthub.io/packages/search?repo=grafana
+> 
 > loki github地址： https://github.com/grafana/loki/releases/tag/v2.4.1
 
 1. 安装grafana、loki以及prometheus
-> loki以及prometheus为同一家公司产品，可以一并安装
+> loki以及prometheus为同一家公司产品，可以使用loki一并安装， helm upgrade --install loki ...
 ```shell
 #增加grafana源，并更新
 helm repo add grafana https://grafana.github.io/helm-charts
