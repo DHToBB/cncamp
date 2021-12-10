@@ -7,13 +7,18 @@
 - 从Promethus 界面中查询延时指标数据
 - （可选）创建一个 Grafana Dashboard 展现延时分配情况
 
-##操作步骤
+## 操作步骤
 
 ---
 1. 打包编译镜像
 ```shell
 make push
 ```
+
+> https://hub.docker.com/repository/docker/dhtobb/httpserver
+> dhtobb/httpserver:v3.0
+> 
+> 新增了prometheus指标支持
 
 2. 安装部署集群
 ```shell
@@ -22,7 +27,7 @@ make deployment
 make clean #清理部署
 ```
 
-3. 安装grafana与prometheus
+3. 为集群安装grafana与prometheus
 >见下方详情说明
 
 ## 详情说明
@@ -64,6 +69,7 @@ defer timer.ObserveTotal()
 - 从Promethus 界面中查询延时指标数据
 > grafana官网地址： https://artifacthub.io/packages/search?repo=grafana
 > loki github地址： https://github.com/grafana/loki/releases/tag/v2.4.1
+
 1. 安装grafana、loki以及prometheus
 > loki以及prometheus为同一家公司产品，可以一并安装
 ```shell
@@ -155,7 +161,7 @@ ingress-nginx-controller             NodePort    10.96.187.149    <none>        
 > 
 ![avatar](./picture/curl.png)
 
-6. 在grafana中设置数据源
+6. 在grafana中查看数据源prometheus的数据
 > Explore -> Prometheus -> 选择指标（如：hs_exec_latency_seconds_bucket{}）
 
 ![avatar](./picture/zb.png)
