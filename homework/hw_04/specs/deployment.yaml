@@ -1,0 +1,70 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: dhtobb-httpserver
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: httpserver
+  template:
+    metadata:
+      annotations:
+        prometheus.io/scrape: "true"
+        prometheus.io/port: "80"
+      labels:
+        app: httpserver
+    spec:
+      containers:
+        - name: httpserver
+          imagePullPolicy: Always
+          image: dhtobb/httpserver:v3.0
+          ports:
+            - containerPort: 80
+              name: http-metrics
+              protocol: TCP
+          env:  #env不会随着configmap的改变而改变
+            - name: LogDir
+              valueFrom:
+                configMapKeyRef:
+                  name: dhtobb-cm
+                  key: GlogLogdir
+          resources:             #资源请求
+            limits:
+              cpu: 100m
+              memory: 200Mi
+            requests:
+              cpu: 100m
+              memory: 200Mi
+          readinessProbe:
+            httpGet:                #使用http get方式探活，访问httpserver的healthz路径
+              path: /healthz
+              port: 80
+            initialDelaySeconds: 5  # 容器启动后 5s 开始探测
+            periodSeconds: 30       # 探测周期 每30s探测一次
+            timeoutSeconds: 2       # 容器必须在2s内给出回复，否则判定为失败
+            successThreshold: 1     # 连续探测1次成功表示成功
+            failureThreshold: 3     # 连续探测 3 次失败表示失败
+          livenessProbe:
+            httpGet: #使用http get方式探活，访问httpserver的healthz路径
+              path: /healthz
+              port: 80
+            initialDelaySeconds: 30  # 容器启动后 30s 开始探测， 晚于readnessProbe
+            periodSeconds: 30       # 探测周期 每30s探测一次
+            timeoutSeconds: 2       # 容器必须在2s内给出回复，否则判定为失败
+            successThreshold: 1     # 连续探测1次成功表示成功
+            failureThreshold: 3     # 连续探测 3 次失败表示失败
+          volumeMounts: #值可以随着configmap的改变而改变，每一个key映射为一个文件
+            - name: dhtobb-hs-cm
+              mountPath: "/etc/hs-cm"
+              readOnly: true
+            - name: dhtobb-hs-storage #用于存储httpserver产生的日志信息
+              mountPath: "/hs-log"
+      terminationGracePeriodSeconds: 60 #优雅结束
+      volumes:
+        - name: dhtobb-hs-cm
+          configMap:
+            name: dhtobb-cm
+        - name: dhtobb-hs-storage
+          persistentVolumeClaim:
+            claimName: dhtobb-hs-pv-claim

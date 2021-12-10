@@ -1,0 +1,22 @@
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: dhtobb-gateway
+  annotations:
+    kubernetes.io/ingress.class: "nginx"
+spec:
+  tls:
+    - hosts:
+        - dhtobb.com
+      secretName: tls-secret #使用tls-secret作为证书
+  rules:
+    - host: dhtobb.com
+      http:
+        paths:
+          - path: "/"
+            pathType: Prefix
+            backend:
+              service:
+                name: dhtobb-httpserver-service #与service关联起来
+                port:
+                  number: 80

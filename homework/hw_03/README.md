@@ -24,9 +24,22 @@
 > 使用 readinessProbe探针 检查pod是否就绪， 只有就绪的情况下才接收请求。
 
 - 优雅终止。
-> 使用配置 terminationGracePeriodSeconds: 60， 在pod发出关闭指令时，k8s将给应用发送SIGTERM信号，k8s会等待60秒后关闭。
+>使用preStop Hook
+> 
+>使用配置 terminationGracePeriodSeconds: 60， 在pod发出关闭指令时，k8s将给应用发送SIGTERM信号，k8s会等待60秒后关闭。
+> 
+> SIGTERM - 15 
+> 
+> SIGKILL - 9
 > 
 > httpserver源码中增加对SIGTERM信号的检测处理。
+```yaml
+lifecycle:
+  preStop:
+    exec:
+      command:
+        - /stop.sh
+```
 
 - 资源需求和QoS保证。
 > 设置deployment的resources请求
