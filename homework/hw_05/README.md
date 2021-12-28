@@ -32,7 +32,15 @@ make clean
 
 3. 访问
 ```shell
+root@master:~/hw_05# k get svc -nistio-system
+NAME                   TYPE           CLUSTER-IP                EXTERNAL-IP   PORT(S)                                                                      AGE
+istio-ingressgateway   LoadBalancer   GATEWAY_IP(XX.XX.XX.XX)   <pending>     15021:30116/TCP,80:30703/TCP,443:30372/TCP,31400:31526/TCP,15443:30252/TCP   145m
 
+#通过http访问
+curl --noproxy "*" -H "Host: hs.dhtobb.io"  ${GATEWAY_IP}/delay -v
+
+#通过https访问
+curl --noproxy "*"  --resolve hss.dhtobb.io:443:${GATEWAY_IP}  https://hss.dhtobb.io/delay  -k -v
 ```
 
 ## 详情步骤说明

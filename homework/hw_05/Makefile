@@ -17,7 +17,7 @@ push:release
 deployment:
 	# 创建名称空间
 	kubectl create ns dhtobb-hs
-	kubectl label ns dhtobb-hs istio-injection=enabled
+	#kubectl label ns dhtobb-hs istio-injection=enabled
 
 	# 创建deployment
 	kubectl apply -f specs/configmap.yaml -n dhtobb-hs
@@ -25,7 +25,7 @@ deployment:
 	kubectl apply -f specs/pv.yaml -n dhtobb-hs
 	kubectl apply -f specs/pvc.yaml -n dhtobb-hs
 
-	kubectl apply -f specs/deployment.yaml -n dhtobb-hs
+	kubectl apply -f specs/deployment.istio.injected.yaml -n dhtobb-hs
 
 	# 创建service
 	kubectl apply -f specs/service.yaml -n dhtobb-hs
@@ -51,7 +51,7 @@ result:
 
 clean:
 	kubectl delete --ignore-not-found=true -f specs/configmap.yaml -n dhtobb-hs
-	kubectl delete --ignore-not-found=true -f specs/deployment.yaml -n dhtobb-hs
+	kubectl delete --ignore-not-found=true -f specs/deployment.istio.injected.yaml -n dhtobb-hs
 	kubectl delete --ignore-not-found=true -f specs/service.yaml -n dhtobb-hs
 	kubectl delete --ignore-not-found=true -f specs/pvc.yaml -n dhtobb-hs
 	kubectl delete --ignore-not-found=true -f specs/pv.yaml -n dhtobb-hs
