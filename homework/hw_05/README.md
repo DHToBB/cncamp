@@ -13,13 +13,10 @@
 1. 打包编译镜像
 ```shell
 make push
+
+# https://hub.docker.com/repository/docker/dhtobb/httpserver
+# dhtobb/httpserver:v4.0
 ```
-
-> https://hub.docker.com/repository/docker/dhtobb/httpserver
-> 
-> dhtobb/httpserver:v4.0
-> 
-
 
 2. 安装部署集群
 ```shell
@@ -270,4 +267,5 @@ ROOTCA                             CA             ACTIVE     true           2147
 
 3. 检查ingress网关日志
 > istioctl proxy-config log {ingress-pod}.istio-system 
+> 
 > istioctl dashboard envoy {ingress-pod}.istio-system
