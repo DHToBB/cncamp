@@ -1,0 +1,60 @@
+apiVersion: networking.istio.io/v1beta1
+kind: VirtualService
+metadata:
+  name: dhtobb-hs-vs
+spec:
+  gateways:
+    - dhtobb-hs/dhtobb-gw
+  hosts: # 域名匹配
+    - hss.dhtobb.io
+    - hs.dhtobb.io
+  http:
+    - match:
+        - uri:
+            exact: "/not-delay"
+      rewrite:
+        uri: "/delay"
+      route:
+          - destination:
+              host: dhtobb-hs-service.dhtobb-hs.svc.cluster.local
+              port:
+                number: 80
+    - match:
+        - port: 80
+      route:
+          - destination:
+              host: dhtobb-hs-service.dhtobb-hs.svc.cluster.local
+              port:
+                number: 80
+    - match:
+        - port: 443
+      route:
+        - destination:
+            host: dhtobb-hs-service.dhtobb-hs.svc.cluster.local
+            port:
+              number: 80
+---
+apiVersion: networking.istio.io/v1beta1
+kind: Gateway # 对应 listener, 使istio增加对80端口的监听器， 然后根据VirtualService的规则做转发
+metadata:
+  name: dhtobb-gw
+  namespace: dhtobb-hs
+spec:
+  selector:
+    istio: ingressgateway #对 ki get po --show-label --> istio-ingressgateway-78f69bd5db-wnspm
+  servers:
+    - hosts:
+        - hs.dhtobb.io
+      port:
+        name: http-default
+        number: 80
+        protocol: HTTP
+    - hosts:
+        - hss.dhtobb.io
+      port:
+        name: https-default
+        number: 443
+        protocol: HTTPS
+      tls:
+        mode: SIMPLE #单向认证
+        credentialName: dhtobb-credential
